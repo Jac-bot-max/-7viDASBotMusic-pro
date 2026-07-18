@@ -1,7 +1,7 @@
 {
   "name": "7vidas-bot-pro",
   "version": "1.0.0",
-  "description": "Bot Moçambicano",
+  "type": "module", 
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,7 +10,6 @@
     "@whiskeysockets/baileys": "latest",
     "express": "latest",
     "pino": "latest",
-    "yt-search": "latest",
-    "qrcode-terminal": "latest"
+    "yt-search": "latest"
   }
 }
