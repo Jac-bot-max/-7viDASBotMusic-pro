@@ -1,0 +1,198 @@
+Perfeito! Para tornar seu *bot comercial* e *funcionar apenas em grupos*, você precisa aplicar algumas validações no `index.js`. Abaixo está o *código atualizado*, com:
+
+- Carregamento dinâmico de comandos.
+- Verificação se a mensagem é de grupo.
+- Ignora mensagens privadas.
+
+---
+
+✅ `index.js` Atualizado para Bot de Grupo Comercial
+
+```js
+const { default: makeWASocket, useMultiFileAuthState } = require('@adiwajshing/baileys');
+const { Boom } = require('@hapi/boom');
+const fs = require('fs');
+const path = require('path');
+
+async function carregarComandos() {
+    const comandos = [];
+    const comandosDir = path.join(__dirname, 'commands');
+
+    function carregarPasta(pasta) {
+        const arquivos = fs.readdirSync(pasta);
+        for (const arquivo of arquivos) {
+            const fullPath = path.join(pasta, arquivo);
+            if (fs.statSync(fullPath).isDirectory()) {
+                carregarPasta(fullPath);
+            } else if (arquivo.endsWith('.js')) {
+                const comando = require(fullPath);
+                comandos.push(comando);
+            }
+        }
+    }
+
+    carregarPasta(comandosDir);
+    return comandos;
+}
+
+async function iniciarBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    const sock = makeWASocket({
+auth: state,
+        printQRInTerminal: true
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    const comandos = await carregarComandos();
+
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.message || msg.key.fromMe) return;
+
+        const jid = msg.key.remoteJid;
+
+        // ⚠️ Apenas grupos
+        if (!jid.endsWith('@g.us')) {
+            await sock.sendMessage(jid, { text: 'Este bot funciona apenas em grupos.' });
+            return;
+        }
+
+        const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+        const nomeComando = texto.split(' ')[0].toLowerCase();
+
+        const comando = comandos.find(cmd => cmd.comando === nomeComando);
+        if (comando) {
+            try {
+                await comando.executar(sock, msg);
+            } catch (err) {
+                console.error('Erro ao executar comando:', err);
+            }
+        }
+    });
+}
+
+iniciarBot();
+```
+
+---
+
+🧠 O que você deve fazer agora:
+
+1. *Mantenha todos os comandos separados* na pasta `commands/admin/` e `commands/membros/`.
+2. Certifique-se de que cada comando exporte o `comando` e a função `executar`.
+3. Execute com `node index.js`.
+
+Se quiser, posso criar comandos prontos como:
+- `/ban`
+O erro que você está enfrentando indica que o módulo `@adiwajshing/baileys` não está instalado no seu projeto. Para resolver isso no Termux, siga os passos abaixo:
+
+---
+
+✅ Passo 1: Atualize e instale dependências necessárias
+
+No Termux, execute:
+
+
+```bash
+pkg update && pkg upgrade -y
+pkg install nodejs git -y
+```
+
+
+---
+
+✅ Passo 2: Instale o módulo `@adiwajshing/baileys`
+
+No diretório do seu projeto (`~/SPIDER_BOT`), execute:
+
+
+```bash
+npm install @adiwajshing/baileys
+```
+
+
+Se preferir usar o Yarn:
+
+
+```bash
+npm install -g yarn
+yarn add @adiwajshing/baileys
+```
+
+
+---
+
+✅ Passo 3: Verifique o `package.json`
+
+Após a instalação, verifique se o `package.json` do seu projeto inclui `@adiwajshing/baileys` nas dependências. Se não estiver presente, adicione manualmente:
+
+
+```json
+"dependencies": {
+  "@adiwajshing/baileys": "^3.5.1"
+}
+```
+
+
+Depois, execute `npm install` novamente para garantir que todas as dependências sejam instaladas corretamente.
+
+---
+
+✅ Passo 4: Execute o bot
+
+Com o módulo instalado, você pode iniciar seu bot com:
+
+
+```bash
+node index.js
+```
+
+
+---
+
+⚠️ Observações
+
+- Certifique-se de que o arquivo `index.js` está no diretório correto e que você está executando o comando no mesmo diretório.
+return { conversation: 'Mensagem de exemplo' };
+  }
+});
+```
+
+
+Certifique-se de implementar a função `getMessage`, pois ela é necessária para o reenvio de mensagens perdidas ou descriptografar votos em enquetes. [2]
+
+---
+
+🔁 3. Implemente lógica de reconexão
+
+O Baileys pode desconectar por diversos motivos. Implementar uma lógica de reconexão pode ajudar a manter o bot ativo:
+
+```javascript
+sock.ev.on('connection.update', (update) => {
+  const { connection, lastDisconnect } = update;
+  if (connection === 'close') {
+    const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+    if (shouldReconnect) {
+      iniciarBot(); // Função que inicia o bot
+    }
+  }
+});
+```
+
+
+Essa abordagem tenta reconectar automaticamente o bot, exceto se o motivo da desconexão for logout.
+
+---
+
+🧪 4. Teste em um ambiente diferente
+
+Se possível, teste o bot em outro ambiente ou dispositivo para verificar se o problema persiste. Isso pode ajudar a identificar se o problema está relacionado ao ambiente atual ou à configuração do bot.
+
+---
+
+📄 5. Consulte os registros de erros
+
+Analise os logs gerados pelo Baileys para obter mais detalhes sobre o erro. Mensagens de erro específicas podem fornecer pistas sobre a causa raiz do problema.
+
+---
