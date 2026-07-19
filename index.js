@@ -1,14 +1,24 @@
 import express from 'express';
 import makeWASocket, { delay, useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason } from "@whiskeysockets/baileys";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import pino from "pino";
 import yts from "yt-search";
 import fs from "fs";
 
-// --- SERVIDOR WEB ---
+// =============================================================================
+// REGIÃO 1: SERVIDOR & IA (ESTABILIDADE)
+// =============================================================================
 const app = express();
 const port = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('@7viDASBotMusic PRO Ativo 🇲🇿🇦🇴'));
+app.get('/', (req, res) => res.send('@7viDASBotMusic IA + Xerife Ativo 🇲🇿🇦🇴'));
 app.listen(port, '0.0.0.0');
+
+// Configuração Gemini (IA)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const aiModel = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+    systemInstruction: "Tu és o @7viDASBotMusic, assistente de elite do JACKSON@7VIDAS para beatmakers de Moçambique e Angola. Responde com educação, gírias de produção musical e defenda sempre a união MZ & AO."
+});
 
 if (!global.advertencias) global.advertencias = new Map();
 
@@ -27,13 +37,15 @@ async function startBot() {
         logger: pino({ level: 'silent' }),
         auth: state,
         printQRInTerminal: false,
-        browser: ['@7viDASBotMusic', 'Chrome', '1.0.0'],
-        shouldSyncHistoryMessage: () => false // Otimiza a memória no Render
+        browser: ['7viDASBotMusic PRO', 'Safari', '3.0'],
+        shouldSyncHistoryMessage: () => false
     });
 
     socket.ev.on("creds.update", saveCreds);
-    socket.ev.on("connection.update", (u) => { if (u.connection === "close") startBot(); });
 
+    // =========================================================================
+    // REGIÃO 2: XERIFE MÃO DE FERRO (SEGURANÇA TOTAL) - PRIORIDADE MÁXIMA
+    // =========================================================================
     socket.ev.on("messages.upsert", async (m) => {
         try {
             const msg = m.messages[0];
@@ -52,47 +64,36 @@ async function startBot() {
                 const isBotAdmin = admins.includes(socket.user.id.split(':')[0] + '@s.whatsapp.net');
                 const isSenderAdmin = admins.includes(sender);
 
-                // ==========================================
-                // 🛡️ REGIÃO: FILTRO DE ELITE (APAGAR TUDO)
-                // ==========================================
-                
-                // 1. Detectar Compartilhamento de Status / Estado (O que está no seu print)
-                const isStatus = type === 'protocolMessage' || 
-                                 type === 'senderKeyDistributionMessage' || 
-                                 msg.message?.statusMentionMessage || 
-                                 textLow.includes("estado de") || 
-                                 textLow.includes("status de");
-
-                // 2. Detectar Links (http, www, .com, .net, chat.whatsapp)
+                // --- DETECÇÃO DE LIXO (Links, Status, Imagens aleatórias) ---
                 const isLink = /(https?:\/\/|chat\.whatsapp\.com|www\.)/gi.test(textRaw);
+                const isStatus = type === 'protocolMessage' || msg.message?.statusMentionMessage || textLow.includes("status de");
+                const isInsulto = ["lixo", "fdp", "bullying", "macaco", "preto"].some(p => textLow.includes(p));
+                // Apaga mídia de membros se não for comando de foto ou áudio
+                const isMidiaIrrelevante = (type === 'imageMessage' || type === 'videoMessage') && !textRaw.startsWith('.');
 
-                // 3. Detectar Mídia de Membros (Fotos/Vídeos que não são comandos)
-                const isMidiaProibida = (type === 'imageMessage' || type === 'videoMessage') && !textRaw.startsWith('.');
-
-                if ((isStatus || isLink || isMidiaProibida) && isBotAdmin && !isSenderAdmin) {
-                    // REAÇÃO E APAGAR IMEDIATO
+                if ((isLink || isStatus || isInsulto || isMidiaIrrelevante) && isBotAdmin && !isSenderAdmin) {
                     await socket.sendMessage(from, { react: { text: "❌", key: msg.key } });
-                    await socket.sendMessage(from, { delete: msg.key }); // PROTOCOLO DE DELEÇÃO
+                    await delay(300);
+                    await socket.sendMessage(from, { delete: msg.key }); // APAGA
 
-                    // SISTEMA DE ADVERTÊNCIA
                     let v = (global.advertencias.get(sender) || 0) + 1;
                     global.advertencias.set(sender, v);
 
-                    if (v >= 3) {
-                        await socket.groupParticipantsUpdate(from, [sender], "remove");
-                        await socket.sendMessage(from, { text: `🔴 *BANIDO:* @${sender.split('@')[0]} removido por Spam.`, mentions: [sender] });
+                    if (v >= 3 || isInsulto) {
+                        await socket.groupParticipantsUpdate(from, [sender], "remove"); // BAN
+                        await socket.sendMessage(from, { text: `🔴 *EXPULSO:* @${sender.split('@')[0]} violou as regras do grupo. Mantenha o ambiente limpo!`, mentions: [sender] });
                     } else {
-                        await socket.sendMessage(from, { text: `⚠️ *AVISO [${v}/3]* @${sender.split('@')[0]}, não é permitido links ou status!`, mentions: [sender] });
+                        await socket.sendMessage(from, { text: `⚠️ *AVISO [${v}/3]* @${sender.split('@')[0]}, conteúdo proibido detectado!`, mentions: [sender] });
                     }
-                    return; // Para aqui, não processa comandos
+                    return; // ENCERRA AQUI, A IA NÃO RESPONDE LIXO
                 }
             }
 
-            // ==========================================
-            // 🎹 REGIÃO: CÉREBRO DE MÍDIA (BEATS)
-            // ==========================================
-            if (type === 'audioMessage') {
-                if (msg.message.audioMessage.ptt) {
+            // =====================================================================
+            // REGIÃO 3: CÉREBRO DE MÍDIA (ÁUDIO/VÍDEO)
+            // =====================================================================
+            if (type === 'audioMessage' || (type === 'videoMessage' && textLow.includes("beat"))) {
+                if (msg.message?.audioMessage?.ptt) {
                     await socket.sendMessage(from, { react: { text: "🎙️", key: msg.key } });
                 } else {
                     await socket.sendMessage(from, { react: { text: "✅", key: msg.key } });
@@ -101,28 +102,63 @@ async function startBot() {
                 return;
             }
 
-            // ==========================================
-            // 📝 REGIÃO: COMANDOS (PREFIXO .)
-            // ==========================================
-            if (!textRaw.startsWith('.')) {
-                // Auto-Responder Social
-                if (["oi", "olá", "kmk"].includes(textLow)) {
-                    await socket.sendMessage(from, { text: `🔵 Olá! Como está a produção? 🇲🇿🇦🇴` }, { quoted: msg });
+            // =====================================================================
+            // REGIÃO 4: IA GEMINI (CONVERSA INTELIGENTE)
+            // =====================================================================
+            const botId = socket.user.id.split(':')[0] + '@s.whatsapp.net';
+            const isMentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.includes(botId);
+
+            if (!textRaw.startsWith('.') && (isMentioned || !isGroup)) {
+                if (process.env.GEMINI_API_KEY) {
+                    await socket.sendMessage(from, { react: { text: "🧠", key: msg.key } });
+                    const result = await aiModel.generateContent(textRaw);
+                    const response = result.response.text();
+                    await socket.sendMessage(from, { text: `🤖 *ASSISTENTE JACKSON@7VIDAS*\n\n${response}` }, { quoted: msg });
+                    return;
                 }
-                return;
             }
 
+            // =====================================================================
+            // REGIÃO 5: COMANDOS MANUAIS (PREFIXO . )
+            // =====================================================================
+            if (!textRaw.startsWith('.')) return;
             const args = textRaw.slice(1).trim().split(/\s+/);
-            const command = args.shift().toLowerCase();
+            const cmd = args.shift().toLowerCase();
             const query = args.join(" ");
 
-            if (command === "menu") {
-                await socket.sendMessage(from, { text: "╔══════ 🔵 *@7viDASBotMusic* 🔵 ══════╗\n║\n║ 🔴 *XERIFE AUTO*\n║ ◽ Anti-Status | Anti-Link\n║ ◽ Anti-Lixo | Auto-Ban\n║\n║ ⚪ *PRODUÇÃO*\n║ ◽ .yt | .foto | .play\n║ ◽ .drums | .vst | .apps\n║\n║ 👑 ADMIN: JACKSON@7VIDAS\n╚══════════════════════════╝" });
+            if (cmd === "menu") {
+                const menu = `╔══════ 🔵 *@7viDASBotMusic* 🔵 ══════╗
+║
+║ 🔴 *XERIFE AUTOMÁTICO*
+║ ◽ Anti-Status | Anti-Link
+║ ◽ Anti-Lixo | Auto-Ban
+║
+║ ⚪ *INTELIGÊNCIA ARTIFICIAL*
+║ ◽ Mencione o bot para conversar
+║ ◽ Peça dicas de produção musical
+║
+║ 🔵 *BUSCAS PRO*
+║ ◽ .yt | .foto | .play | .drums
+║
+║ 👑 ADMIN: JACKSON@7VIDAS
+╚══════════════════════════════╝`;
+                await socket.sendMessage(from, { text: menu });
             }
 
-            if (command === "ping") await socket.sendMessage(from, { text: "🛰️ Jackson Beatz Online!" });
+            if (cmd === "ping") {
+                const lat = Date.now() - (msg.messageTimestamp * 1000);
+                await socket.sendMessage(from, { text: `🛰️ *LATÊNCIA:* ${lat}ms\n🤖 *IA:* Gemini 1.5 Ativa` });
+            }
 
-        } catch (e) { console.log("Erro:", e); }
+            if (cmd === "yt" || cmd === "play" || cmd === "drums") {
+                await socket.sendMessage(from, { text: "🔍 _Procurando, aguarde..._" });
+                const s = await yts(query || "jackson beatz");
+                if (s.videos[0]) await socket.sendMessage(from, { text: `📺 *RESULTADO:* ${s.videos[0].title}\n🔗 ${s.videos[0].url}` });
+            }
+
+        } catch (e) { console.log(e); }
     });
+
+    socket.ev.on("connection.update", (u) => { if (u.connection === "close") startBot(); });
 }
 startBot();
