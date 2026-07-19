@@ -1,13 +1,15 @@
 {
-  "name": "7vidas-bot-pro",
+  "name": "7vidas-bot-pro-ai",
   "version": "1.0.0",
-  "type": "module", 
+  "description": "Bot @7viDASBotMusic com IA Gemini e Xerife Automático",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "latest",
+    "@google/generative-ai": "latest",
     "express": "latest",
     "pino": "latest",
     "yt-search": "latest"
