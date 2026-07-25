@@ -3,17 +3,15 @@ import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, delay, 
 import pino from "pino";
 import fs from "fs";
 
-// 1. SERVIDOR WEB (LIGAÇÃO IMEDIATA)
+// 1. SERVIDOR WEB IMEDIATO
 const app = express();
-const port = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('7viDASBotMusic - Aguardando estabilização da rede... 🇲🇿'));
-app.listen(port, '0.0.0.0', () => console.log(`✅ Servidor Web ativo na porta ${port}`));
+app.get('/', (req, res) => res.send('Motor de Conexão Relâmpago Ativo! 🇲🇿'));
+app.listen(process.env.PORT || 10000, '0.0.0.0');
 
 async function startBot() {
-    // RESET TOTAL: Limpa tudo para garantir um pedido do zero absoluto
+    // RESET TOTAL: Limpa tudo para não carregar lixo da tentativa anterior
     if (fs.existsSync('./session_data')) {
         fs.rmSync('./session_data', { recursive: true, force: true });
-        console.log("🧹 Memória limpa para evitar erros de processamento.");
     }
 
     const { state, saveCreds } = await useMultiFileAuthState('session_data');
@@ -21,34 +19,34 @@ async function startBot() {
 
     const socket = makeWASocket({
         version,
-        logger: pino({ level: 'silent' }),
+        logger: pino({ level: 'fatal' }), // Log mínimo para economizar RAM
         auth: state,
         printQRInTerminal: false,
         browser: ["Ubuntu", "Chrome", "20.0.04"],
-        // BLOQUEIO TOTAL DE HISTÓRICO (ESSENCIAL PARA NÃO TRAVAR)
+        // --- BLOQUEIO TOTAL DE SINCRONIZAÇÃO (PARA NÃO TRAVAR) ---
         shouldSyncHistoryMessage: () => false, 
         syncFullHistory: false,
-        connectTimeoutMs: 60000
+        markOnlineOnConnect: true,
+        connectTimeoutMs: 60000,
+        getMessage: async (key) => { return { conversation: '7viDASBot' } }
     });
 
-    // --- 2. LÓGICA DE PAREAMENTO COM ESPERA DE 40 SEGUNDOS ---
+    // --- SOLICITAÇÃO DO CÓDIGO ---
     const numeroBot = "258848786486"; 
 
     if (!socket.authState.creds.registered) {
-        console.log(`⏳ Aguardando 40 segundos para estabilizar o servidor antes de pedir o código...`);
-        
-        setTimeout(async () => {
-            console.log(`📡 Solicitando código agora para: ${numeroBot}`);
-            try {
-                let code = await socket.requestPairingCode(numeroBot);
-                code = code?.match(/.{1,4}/g)?.join("-") || code;
-                console.log("\n=======================================");
-                console.log(`O TEU CÓDIGO É: ${code}`);
-                console.log("=======================================\n");
-            } catch (err) {
-                console.log("❌ O WhatsApp demorou a responder. Tente novamente.");
-            }
-        }, 40000); // PAUSA DE 40 SEGUNDOS
+        console.log(`📡 A solicitar código para o bot: ${numeroBot}`);
+        await delay(15000); // Espera 15s para estabilizar
+
+        try {
+            let code = await socket.requestPairingCode(numeroBot);
+            code = code?.match(/.{1,4}/g)?.join("-") || code;
+            console.log("\n=======================================");
+            console.log(`TEU CÓDIGO É: ${code}`);
+            console.log("=======================================\n");
+        } catch (err) {
+            console.log("❌ Erro. Aguarde o Render reiniciar.");
+        }
     }
 
     socket.ev.on("creds.update", saveCreds);
@@ -56,31 +54,26 @@ async function startBot() {
     socket.ev.on("connection.update", (u) => {
         const { connection, lastDisconnect } = u;
         if (connection === "open") {
-            console.log("✅ ✅ ✅ CONECTADO COM SUCESSO! MANDA .key NO WHATSAPP!");
+            console.log("✅ CONECTADO INSTANTANEAMENTE!");
         }
         if (connection === "close") {
             const reason = lastDisconnect?.error?.output?.statusCode;
+            // Só reconecta se não for erro de login
             if (reason !== DisconnectReason.loggedOut) startBot();
         }
     });
 
     socket.ev.on("messages.upsert", async (m) => {
-        try {
-            const msg = m.messages[0];
-            if (!msg.message || msg.key.fromMe) return;
-            const from = msg.key.remoteJid;
-            const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase().trim();
+        const msg = m.messages[0];
+        if (!msg.message || msg.key.fromMe) return;
+        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase();
 
-            if (text === ".key") {
+        if (text === ".key") {
+            try {
                 const creds = fs.readFileSync('./session_data/creds.json');
-                const sessionString = Buffer.from(creds).toString('base64');
-                await socket.sendMessage(from, { text: `🔐 *SUA SESSION_ID:* \n\n${sessionString}` });
-                await socket.sendMessage(from, { text: "✅ Jackson, copia este código e coloca no Render!" });
-            }
-            
-            if (text === ".ping") await socket.sendMessage(from, { text: "🛰️ Online e estável!" });
-
-        } catch (e) { console.log(e); }
+                await socket.sendMessage(msg.key.remoteJid, { text: `🔐 *KEY:* \n\n${Buffer.from(creds).toString('base64')}` });
+            } catch (e) { console.log(e); }
+        }
     });
 }
 
