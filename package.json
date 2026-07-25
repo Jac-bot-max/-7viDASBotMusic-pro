@@ -1,5 +1,5 @@
 {
-  "name": "7vidas-bot-resgate-pro",
+  "name": "7vidas-resgate-ultra-light",
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
@@ -9,7 +9,6 @@
   "dependencies": {
     "@whiskeysockets/baileys": "latest",
     "express": "latest",
-    "pino": "latest",
-    "yt-search": "latest"
+    "pino": "latest"
   }
 }
