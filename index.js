@@ -3,17 +3,15 @@ import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, delay, 
 import pino from "pino";
 import fs from "fs";
 
-// --- 1. LIGAR O SERVIDOR IMEDIATAMENTE (PORTA 10000) ---
+// 1. SERVIDOR WEB IMEDIATO
 const app = express();
-const port = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('7viDASBotMusic - Resgate de Meia-Noite! 🇲🇿'));
-app.listen(port, '0.0.0.0', () => console.log(`✅ Servidor ativo na porta ${port}`));
+app.get('/', (req, res) => res.send('Motor de Conexão Relâmpago Ativo! 🇲🇿'));
+app.listen(process.env.PORT || 10000, '0.0.0.0');
 
 async function startBot() {
-    // RESET TOTAL: Limpa qualquer erro que impeça o código novo
+    // RESET TOTAL: Limpa tudo para não carregar lixo da tentativa anterior
     if (fs.existsSync('./session_data')) {
         fs.rmSync('./session_data', { recursive: true, force: true });
-        console.log("🧹 Memória limpa!");
     }
 
     const { state, saveCreds } = await useMultiFileAuthState('session_data');
@@ -21,57 +19,60 @@ async function startBot() {
 
     const socket = makeWASocket({
         version,
-        logger: pino({ level: 'silent' }),
+        logger: pino({ level: 'fatal' }), // Log mínimo para economizar RAM
         auth: state,
         printQRInTerminal: false,
-        // DISFARCE DE MACBOOK/SAFARI (O WhatsApp confia mais para mandar código)
-        browser: ["Mac OS", "Safari", "15.0"], 
-        shouldSyncHistoryMessage: () => false,
-        syncFullHistory: false
+        browser: ["Ubuntu", "Chrome", "20.0.04"],
+        // --- BLOQUEIO TOTAL DE SINCRONIZAÇÃO (PARA NÃO TRAVAR) ---
+        shouldSyncHistoryMessage: () => false, 
+        syncFullHistory: false,
+        markOnlineOnConnect: true,
+        connectTimeoutMs: 60000,
+        getMessage: async (key) => { return { conversation: '7viDASBot' } }
     });
 
-    // --- 2. LÓGICA DE NOTIFICAÇÃO (ESPERA DE 30 SEGUNDOS) ---
+    // --- SOLICITAÇÃO DO CÓDIGO ---
     const numeroBot = "258848786486"; 
 
     if (!socket.authState.creds.registered) {
-        console.log(`📡 Preparando sinal para o bot (848786486)...`);
-        console.log(`⏳ Jackson, aguarda 30 segundos na tela de conexão...`);
+        console.log(`📡 A solicitar código para o bot: ${numeroBot}`);
+        await delay(15000); // Espera 15s para estabilizar
 
-        // Tempo para o Render estabilizar e o WhatsApp não bloquear
-        setTimeout(async () => {
-            try {
-                let code = await socket.requestPairingCode(numeroBot);
-                code = code?.match(/.{1,4}/g)?.join("-") || code;
-                console.log("\n=======================================");
-                console.log(`O TEU CÓDIGO É: ${code}`);
-                console.log("=======================================\n");
-            } catch (err) {
-                console.log("❌ Ocorreu um erro no pedido. Reinicie o Deploy.");
-            }
-        }, 30000); 
+        try {
+            let code = await socket.requestPairingCode(numeroBot);
+            code = code?.match(/.{1,4}/g)?.join("-") || code;
+            console.log("\n=======================================");
+            console.log(`TEU CÓDIGO É: ${code}`);
+            console.log("=======================================\n");
+        } catch (err) {
+            console.log("❌ Erro. Aguarde o Render reiniciar.");
+        }
     }
 
     socket.ev.on("creds.update", saveCreds);
 
     socket.ev.on("connection.update", (u) => {
-        if (u.connection === "open") console.log("✅ CONECTADO! ESCREVA .key NO WHATSAPP!");
-        if (u.connection === "close") startBot();
+        const { connection, lastDisconnect } = u;
+        if (connection === "open") {
+            console.log("✅ CONECTADO INSTANTANEAMENTE!");
+        }
+        if (connection === "close") {
+            const reason = lastDisconnect?.error?.output?.statusCode;
+            // Só reconecta se não for erro de login
+            if (reason !== DisconnectReason.loggedOut) startBot();
+        }
     });
 
     socket.ev.on("messages.upsert", async (m) => {
         const msg = m.messages[0];
         if (!msg.message || msg.key.fromMe) return;
-        const from = msg.key.remoteJid;
-        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase().trim();
+        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase();
 
-        // COMANDO PARA GERAR A KEY NOVA
         if (text === ".key") {
             try {
                 const creds = fs.readFileSync('./session_data/creds.json');
-                const sessionString = Buffer.from(creds).toString('base64');
-                await socket.sendMessage(from, { text: `🔐 *SUA SESSION_ID NOVA:* \n\n${sessionString}` });
-                await socket.sendMessage(from, { text: "✅ Jackson, guarda esse código e coloca no Render!" });
-            } catch (e) { await socket.sendMessage(from, { text: "Erro ao ler a chave." }); }
+                await socket.sendMessage(msg.key.remoteJid, { text: `🔐 *KEY:* \n\n${Buffer.from(creds).toString('base64')}` });
+            } catch (e) { console.log(e); }
         }
     });
 }
