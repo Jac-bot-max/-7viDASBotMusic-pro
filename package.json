@@ -1,5 +1,5 @@
 {
-  "name": "7vidas-bot-resgate",
+  "name": "7vidas-gerador-key",
   "type": "module",
   "main": "index.js",
   "scripts": { "start": "node index.js" },
