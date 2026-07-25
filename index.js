@@ -3,17 +3,17 @@ import makeWASocket, { useMultiFileAuthState, delay, fetchLatestBaileysVersion }
 import pino from "pino";
 import fs from "fs";
 
-// --- 1. LIGAR O CORAÇÃO DO RENDER (PORTA 10000) ---
+// 1. SERVIDOR WEB (ESTABILIDADE RENDER)
 const app = express();
 const port = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('Aguardando Notificação no seu Celular...'));
-app.listen(port, '0.0.0.0', () => console.log(`✅ 1. Servidor ativo na porta ${port}`));
+app.get('/', (req, res) => res.send('7viDASBotMusic - A aguardar pareamento moçambicano... 🇲🇿'));
+app.listen(port, '0.0.0.0', () => console.log(`✅ Servidor ativo na porta ${port}`));
 
 async function startBot() {
-    // 2. RESET TOTAL (Apaga qualquer rastro que impeça a notificação)
+    // RESET TOTAL: Garante que o WhatsApp envie um código NOVO
     if (fs.existsSync('./session_data')) {
         fs.rmSync('./session_data', { recursive: true, force: true });
-        console.log("🧹 2. Cache antigo limpo para forçar notificação.");
+        console.log("🧹 Memória limpa para novo pareamento.");
     }
 
     const { state, saveCreds } = await useMultiFileAuthState('session_data');
@@ -24,40 +24,37 @@ async function startBot() {
         logger: pino({ level: 'silent' }),
         auth: state,
         printQRInTerminal: false,
-        // ESTA LINHA ABAIXO É O SEGREDO PARA A NOTIFICAÇÃO CHEGAR:
+        // SIMULAÇÃO DE NAVEGADOR (O segredo da notificação)
         browser: ["Ubuntu", "Chrome", "20.0.04"], 
         shouldSyncHistoryMessage: () => false
     });
 
-    // --- 3. LÓGICA PARA FAZER O WHATSAPP VIBRAR COM O CÓDIGO ---
-    const numeroBot = process.env.NUMERO_BOT; // Certifica-te que está 258... no Render
+    // --- LÓGICA DE NOTIFICAÇÃO ---
+    const numeroParaParear = process.env.NUMERO_BOT; 
 
-    if (numeroBot && !socket.authState.creds.registered) {
-        const numLimpo = numeroBot.replace(/[^0-9]/g, '');
-        console.log(`📡 3. Solicitando notificação oficial para: ${numLimpo}`);
+    if (numeroParaParear && !socket.authState.creds.registered) {
+        console.log(`📡 A solicitar código para o bot: ${numeroParaParear}`);
 
-        // Esperamos 20 segundos para o servidor estabilizar 100%
+        // Esperamos 25 segundos para a rede do Render estabilizar
         setTimeout(async () => {
             try {
-                const code = await socket.requestPairingCode(numLimpo);
-                const codeFormatado = code?.match(/.{1,4}/g)?.join("-") || code;
+                let code = await socket.requestPairingCode(numeroParaParear.trim());
+                code = code?.match(/.{1,4}/g)?.join("-") || code;
                 
                 console.log("\n=======================================");
-                console.log(`CÓDIGO DE PAREAMENTO: ${codeFormatado}`);
+                console.log(`CÓDIGO PARA O BOT (848786486): ${code}`);
                 console.log("=======================================\n");
-                console.log("👉 Se a notificação não apareceu, abra o WhatsApp > Aparelhos Conectados > Conectar com número.");
+                console.log("👉 Abre o WhatsApp do Bot > Aparelhos Conectados > Conectar com número agora!");
             } catch (err) {
-                console.log("❌ Erro ao pedir código. Reiniciando o Deploy...");
+                console.log("❌ Erro. Faz 'Clear cache and redeploy' no Render.");
             }
-        }, 20000); 
+        }, 25000); 
     }
 
     socket.ev.on("creds.update", saveCreds);
 
     socket.ev.on("connection.update", (u) => {
-        if (u.connection === "open") {
-            console.log("✅ ✅ ✅ CONECTADO! AGORA DIGITE .key NO WHATSAPP");
-        }
+        if (u.connection === "open") console.log("✅ CONECTADO! AGORA MANDA .key NO WHATSAPP!");
         if (u.connection === "close") startBot();
     });
 
@@ -70,9 +67,9 @@ async function startBot() {
         if (text === ".key") {
             try {
                 const creds = fs.readFileSync('./session_data/creds.json');
-                const sessionID = Buffer.from(creds).toString('base64');
-                await socket.sendMessage(from, { text: `🔐 *SESSION_ID PARA O RENDER:*\n\n${sessionID}` });
-                await socket.sendMessage(from, { text: "✅ Jackson, guarda esta chave e mete no Render para o bot nunca mais desligar!" });
+                const sessionString = Buffer.from(creds).toString('base64');
+                await socket.sendMessage(from, { text: `🔐 *SESSION_ID:* \n\n${sessionString}` });
+                await socket.sendMessage(from, { text: "✅ JACKSON, salva esta chave no Render!" });
             } catch (e) { await socket.sendMessage(from, { text: "Erro ao ler a chave." }); }
         }
     });
