@@ -1,50 +1,47 @@
 import express from 'express';
-import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, delay } from "@whiskeysockets/baileys";
+import makeWASocket, { useMultiFileAuthState, delay, fetchLatestBaileysVersion } from "@whiskeysockets/baileys";
 import pino from "pino";
 import fs from "fs";
 
 const app = express();
-app.get('/', (req, res) => res.send('Motor de Conexão Rápida Ativo! 🇲🇿'));
+app.get('/', (req, res) => res.send('Motor de Resgate JACKSON@7VIDAS'));
 app.listen(process.env.PORT || 10000, '0.0.0.0');
 
 async function startBot() {
-    // Só limpa se não estiver registado para evitar loops
+    // LIMPEZA TOTAL: Começar do zero para o código funcionar
+    if (fs.existsSync('./session_data')) fs.rmSync('./session_data', { recursive: true, force: true });
+
     const { state, saveCreds } = await useMultiFileAuthState('session_data');
-    const { version } = await fetchLatestBaileysVersion();
 
     const socket = makeWASocket({
-        version,
         auth: state,
-        logger: pino({ level: 'silent' }),
+        logger: pino({ level: 'fatal' }), // Silêncio total para economizar RAM
         printQRInTerminal: false,
         browser: ["Ubuntu", "Chrome", "20.0.04"],
-        // --- BLOQUEIO AGRESSIVO DE HISTÓRICO (PARA NÃO TRAVAR NO PROCESSANDO) ---
+        // --- BLOQUEIO TOTAL DE DADOS (O SEGREDO) ---
         shouldSyncHistoryMessage: () => false, 
         syncFullHistory: false,
-        linkPreviewImageThumbnailWidth: 192,
-        markOnlineOnConnect: true,
-        connectTimeoutMs: 60000
+        markOnlineOnConnect: false, // Não mostra online para ser mais rápido
+        connectTimeoutMs: 60000,
+        generateHighQualityLinkPreview: false
     });
 
-    // SÓ PEDE CÓDIGO SE TIVER A VARIÁVEL "NUMERO_BOT" CONFIGURADA NO RENDER
     const numeroBot = process.env.NUMERO_BOT; 
 
     if (!socket.authState.creds.registered && numeroBot) {
-        console.log(`📡 Solicitando código para: ${numeroBot}`);
-        await delay(15000); // Espera o Render estabilizar
+        console.log(`📡 Preparando sinal para: ${numeroBot}`);
+        await delay(15000); // Espera o Render respirar
         try {
-            let code = await socket.requestPairingCode(numeroBot.replace(/[^0-9]/g, ''));
-            console.log(`\n=======================================\nCÓDIGO: ${code}\n=======================================\n`);
-        } catch (err) { console.log("Erro ao pedir código. Faz redeploy."); }
-    } else if (!socket.authState.creds.registered && !numeroBot) {
-        console.log("⚠️ Aguardando configuração do NUMERO_BOT no Render para solicitar código.");
+            let code = await socket.requestPairingCode(numeroBot);
+            console.log(`\n=======================================\nCÓDIGO NOVO: ${code}\n=======================================\n`);
+        } catch (err) { console.log("Erro no pedido. Tente Manual Deploy."); }
     }
 
     socket.ev.on("creds.update", saveCreds);
 
     socket.ev.on("connection.update", (u) => {
         if (u.connection === "open") {
-            console.log("✅ CONECTADO COM SUCESSO!");
+            console.log("✅ CONECTADO! ESCREVE .key NO WHATSAPP AGORA!");
         }
         if (u.connection === "close") startBot();
     });
@@ -52,14 +49,13 @@ async function startBot() {
     socket.ev.on("messages.upsert", async (m) => {
         const msg = m.messages[0];
         if (!msg.message || msg.key.fromMe) return;
-        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase().trim();
+        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase();
 
         if (text === ".key") {
             try {
                 const creds = fs.readFileSync('./session_data/creds.json');
-                const sessionString = Buffer.from(creds).toString('base64');
-                await socket.sendMessage(msg.key.remoteJid, { text: `🔐 *SUA SESSION_ID:* \n\n${sessionString}` });
-            } catch (e) { await socket.sendMessage(msg.key.remoteJid, { text: "Erro ao gerar chave." }); }
+                await socket.sendMessage(msg.key.remoteJid, { text: `🔐 *KEY:* \n\n${Buffer.from(creds).toString('base64')}` });
+            } catch (e) { console.log(e); }
         }
     });
 }
