@@ -33,7 +33,7 @@ async function startBot() {
     });
 
     // O TEU NÚMERO DO BOT
-    const numeroBot = "2588655"; 
+    const numeroBot = "258865560063"; 
 
     if (!socket.authState.creds.registered) {
         console.log(`📡 Solicitando notificação para o 86...`);
