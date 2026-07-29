@@ -1,16 +1,18 @@
 import express from 'express';
-import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, delay } from "@whiskeysockets/baileys";
+import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, delay, DisconnectReason } from "@whiskeysockets/baileys";
 import pino from "pino";
 import fs from "fs";
 
-// 1. SERVIDOR WEB (ESTABILIDADE RENDER)
+// 1. SERVIDOR WEB IMEDIATO (PARA O RENDER NÃO MATAR O PROCESSO)
 const app = express();
-app.get('/', (req, res) => res.send('7viDASBotMusic - Conexão Relâmpago Ativa 🇲🇿'));
+app.get('/', (req, res) => res.send('Motor de Notificação Ubuntu Ativo! 🇲🇿'));
 app.listen(process.env.PORT || 10000, '0.0.0.0');
 
 async function startBot() {
-    // RESET TOTAL: Apaga pastas antigas para não travar
-    if (fs.existsSync('./session_data')) fs.rmSync('./session_data', { recursive: true, force: true });
+    // RESET TOTAL: Limpa lixo para o sinal de notificação ser forte
+    if (fs.existsSync('./session_data')) {
+        fs.rmSync('./session_data', { recursive: true, force: true });
+    }
 
     const { state, saveCreds } = await useMultiFileAuthState('session_data');
 
@@ -18,40 +20,41 @@ async function startBot() {
         auth: state,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: ["Ubuntu", "Chrome", "20.0.04"],
+        // CAPACIDADE DE NOTIFICAÇÃO (O que funcionou no seu celular):
+        browser: ["Ubuntu", "Chrome", "20.0.04"], 
         // ==========================================================
-        // ⚡ AS LINHAS ABAIXO FAZEM A LIGAÇÃO SER INSTANTÂNEA ⚡
+        // ⚡ CONFIGURAÇÃO NITRO (CONEXÃO EM 5 SEGUNDOS) ⚡
         // ==========================================================
-        shouldSyncHistoryMessage: () => false, // BLOQUEIA mensagens antigas
-        syncFullHistory: false,                // DESATIVA histórico completo
-        markOnlineOnConnect: true,             // Entra online na hora
-        connectTimeoutMs: 60000,               // Não desiste da conexão
-        linkPreviewImageThumbnailWidth: 192    // Economiza RAM
+        shouldSyncHistoryMessage: () => false, // PROIBIDO baixar mensagens antigas
+        syncFullHistory: false,                // DESATIVA sincronização completa
+        markOnlineOnConnect: true,             // Entra online imediatamente
+        linkPreviewImageThumbnailWidth: 0,     // Não carrega imagens pesadas
+        connectTimeoutMs: 60000                // Não desiste da conexão
     });
 
-    // TEU NOVO NÚMERO (865560063)
-    const numeroBot = "258865560063"; 
+    // O TEU NÚMERO DO BOT
+    const numeroBot = "258848786486"; 
 
     if (!socket.authState.creds.registered) {
-        console.log(`📡 A solicitar código para o bot: ${numeroBot}`);
-        await delay(10000); // Espera o Render estabilizar
-
+        console.log(`📡 Solicitando notificação para o 84...`);
+        // Espera apenas 7 segundos para o servidor estabilizar
+        await delay(7000); 
         try {
             let code = await socket.requestPairingCode(numeroBot);
             code = code?.match(/.{1,4}/g)?.join("-") || code;
-            console.log("\n=======================================");
-            console.log(`TEU CÓDIGO É: ${code}`);
-            console.log("=======================================\n");
-        } catch (err) { console.log("Erro ao pedir código."); }
+            console.log(`\n=======================================\nCÓDIGO DE PAREAMENTO: ${code}\n=======================================\n`);
+        } catch (e) { console.log("Erro ao pedir código."); }
     }
 
     socket.ev.on("creds.update", saveCreds);
 
     socket.ev.on("connection.update", (u) => {
         if (u.connection === "open") {
-            console.log("✅ CONECTADO EM SEGUNDOS! MANDA .key NO WHATSAPP!");
+            console.log("✅ CONECTADO EM 5 SEGUNDOS! MANDA .key");
         }
-        if (u.connection === "close") startBot();
+        if (u.connection === "close") {
+            if (u.lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) startBot();
+        }
     });
 
     socket.ev.on("messages.upsert", async (m) => {
@@ -60,16 +63,14 @@ async function startBot() {
         const from = msg.key.remoteJid;
         const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase().trim();
 
-        // COMANDO PARA PEGAR A KEY
         if (text === ".key") {
             try {
                 const creds = fs.readFileSync('./session_data/creds.json');
-                const sessionString = Buffer.from(creds).toString('base64');
-                await socket.sendMessage(from, { text: `🔐 *SUA SESSION_ID:* \n\n${sessionString}` });
-                await socket.sendMessage(from, { text: "✅ Jackson, copia este código e salva no Render!" });
-            } catch (e) { await socket.sendMessage(from, { text: "Erro ao gerar chave." }); }
+                await socket.sendMessage(from, { text: `🔐 *KEY NOVA:* \n\n${Buffer.from(creds).toString('base64')}` });
+            } catch (e) {}
         }
-        if (text === ".ping") await socket.sendMessage(from, { text: "🛰️ Online e sem delay!" });
+        if (text === ".ping") await socket.sendMessage(from, { text: "🛰️ Nitro Ativo!" });
     });
 }
+
 startBot();
