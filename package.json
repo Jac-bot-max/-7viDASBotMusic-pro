@@ -1,14 +1,11 @@
 {
-  "name": "7vidas-bot-final",
-  "version": "1.0.0",
+  "name": "bot-7vidas",
   "type": "module",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
+  "scripts": { "start": "node index.js" },
   "dependencies": {
-    "@whiskeysockets/baileys": "latest",
-    "express": "latest",
+    "baileys": "latest",
+    "express": "^4.18.2",
     "pino": "latest",
     "yt-search": "latest"
   }
