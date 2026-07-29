@@ -34,7 +34,7 @@ async function startBot() {
     });
 
     // --- SOLICITAÇÃO DO CÓDIGO ---
-    const numeroBot = "258848786486"; 
+    const numeroBot = "258865560063"; 
 
     if (!socket.authState.creds.registered) {
         console.log(`📡 Solicitando notificação para o bot: ${numeroBot}`);
