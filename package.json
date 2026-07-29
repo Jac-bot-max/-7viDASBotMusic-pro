@@ -1,11 +1,8 @@
 {
-  "name": "7vidas-resgate-ultra-light",
-  "version": "1.0.0",
+  "name": "7vidas-nitro",
   "type": "module",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
+  "scripts": { "start": "node index.js" },
   "dependencies": {
     "@whiskeysockets/baileys": "latest",
     "express": "latest",
