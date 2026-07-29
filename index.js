@@ -36,7 +36,7 @@ async function startBot() {
     const numeroBot = "258865560063"; 
 
     if (!socket.authState.creds.registered) {
-        console.log(`📡 Solicitando notificação para o 84...`);
+        console.log(`📡 Solicitando notificação para o 86...`);
         // Espera apenas 7 segundos para o servidor estabilizar
         await delay(7000); 
         try {
