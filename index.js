@@ -33,7 +33,7 @@ async function startBot() {
         const numero = process.env.NUMERO_BOT;
         if (numero) {
             setTimeout(async () => {
-                let code = await socket.requestPairingCode(numero);
+                let code = await socket.requestPairingCode(258865560063);
                 code = code?.match(/.{1,4}/g)?.join("-") || code;
                 console.log(`\nCÓDIGO DE PAREAMENTO: ${code}\n`);
             }, 7000);
