@@ -1,80 +1,43 @@
-import express from 'express';
-import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion, useMultiFileAuthState } from "baileys";
-import pino from "pino";
-import fs from "fs";
-import yts from "yt-search";
-
-const app = express();
-app.get('/', (req, res) => res.send('Jackson Beatz V3 - Gerador de Sessão Ativo!'));
-app.listen(process.env.PORT || 3000);
-
-async function startBot() {
-    // Tenta carregar a sessão se ela já existir no Render
-    const sessionID = process.env.SESSION_ID;
-    if (sessionID && !fs.existsSync('./session_data/creds.json')) {
-        if (!fs.existsSync('./session_data')) fs.mkdirSync('./session_data');
-        const decodedSession = Buffer.from(sessionID, 'base64').toString('utf-8');
-        fs.writeFileSync('./session_data/creds.json', decodedSession);
+// --- LÓGICA DO PAIRING CODE ---
+if (!conn.authState.creds.registered) {
+    const phoneNumber = "258865560063"; // Seu número atualizado
+    
+    // Aguarda 5 segundos para garantir que o sistema está pronto
+    await delay(5000);
+    
+    try {
+        let code = await conn.requestPairingCode(phoneNumber);
+        code = code?.match(/.{1,4}/g)?.join("-") || code;
+        console.log(`\n====================================\n`);
+        console.log(`SEU CÓDIGO DE CONEXÃO: ${code}`);
+        console.log(`\n====================================\n`);
+    } catch (error) {
+        console.error("Erro ao gerar código:", error);
     }
-
-    const { state, saveCreds } = await useMultiFileAuthState('session_data');
-    const { version } = await fetchLatestBaileysVersion();
-
-    const socket = makeWASocket({
-        version,
-        printQRInTerminal: false,
-        auth: state,
-        logger: pino({ level: "silent" }),
-        shouldSyncHistoryMessage: () => false,
-    });
-
-    // Se não tiver login, gera o código de 8 dígitos nos Logs do Render
-    if (!socket.authState.creds.registered) {
-        const numero = process.env.NUMERO_BOT;
-        if (numero) {
-            setTimeout(async () => {
-                let code = await socket.requestPairingCode(258865560063);
-                code = code?.match(/.{1,4}/g)?.join("-") || code;
-                console.log(`\nCÓDIGO DE PAREAMENTO: ${code}\n`);
-            }, 7000);
-        }
-    }
-
-    socket.ev.on("creds.update", saveCreds);
-
-    socket.ev.on("connection.update", (update) => {
-        const { connection } = update;
-        if (connection === "close") startBot();
-        if (connection === "open") console.log("✅ BOT CONECTADO!");
-    });
-
-    socket.ev.on("messages.upsert", async (chatUpdate) => {
-        const msg = chatUpdate.messages[0];
-        if (!msg.message || msg.key.fromMe) return;
-        const from = msg.key.remoteJid;
-        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase();
-
-        // --- COMANDO MÁGICO PARA GERAR A CHAVE ---
-        if (text === "!key") {
-            try {
-                const creds = fs.readFileSync('./session_data/creds.json');
-                const sessionString = Buffer.from(creds).toString('base64');
-                await socket.sendMessage(from, { text: "Aqui está a sua nova SESSION_ID para colar no Render:\n\n" + sessionString });
-            } catch (e) {
-                await socket.sendMessage(from, { text: "Erro ao gerar chave. O bot ainda está sincronizando." });
-            }
-        }
-
-        // COMANDO !FOTO
-        if (text.startsWith("!foto")) {
-            const termo = text.slice(6).trim();
-            const search = await yts(termo);
-            const video = search.videos[0];
-            if (video) {
-                await socket.sendMessage(from, { image: { url: video.thumbnail }, caption: `*Resultado:* ${video.title}` });
-            }
-        }
-    });
 }
 
-startBot();
+// Salva as credenciais sempre que houver atualização
+conn.ev.on('creds.update', saveCreds);
+
+// Gerencia a conexão
+conn.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect } = update;
+    if (connection === 'open') {
+        console.log("✅ BOT CONECTADO COM SUCESSO!");
+    }
+    if (connection === 'close') {
+        console.log("❌ Conexão fechada, tentando reiniciar...");
+        startBot();
+    }
+});
+
+// Responder a mensagens (Exemplo básico)
+conn.ev.on('messages.upsert', async m => {
+    const msg = m.messages[0];
+    if (!msg.message || msg.key.fromMe) return;
+    
+    const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+    if (text === 'oi') {
+        await conn.sendMessage(msg.key.remoteJid, { text: 'Olá! Sou o Jackson AI Bot.' });
+    }
+});
